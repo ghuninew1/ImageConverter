@@ -1,0 +1,50 @@
+# ImageConverter
+
+python3 -m pip install --upgrade pip
+pip3 install Pillow pillow-avif-plugin pyinstaller
+python3 image_converter_gui.py
+pip3 freeze > requirements.txt
+
+pyinstaller \
+    --windowed \
+    --name "Image Converter" \
+    image_converter_gui.py
+
+mkdir ImageConverter.iconset
+sips -z 16 16     icon.png --out ImageConverter.iconset/icon_16x16.png
+sips -z 32 32     icon.png --out ImageConverter.iconset/icon_16x16@2x.png
+
+sips -z 32 32     icon.png --out ImageConverter.iconset/icon_32x32.png
+sips -z 64 64     icon.png --out ImageConverter.iconset/icon_32x32@2x.png
+
+sips -z 128 128   icon.png --out ImageConverter.iconset/icon_128x128.png
+sips -z 256 256   icon.png --out ImageConverter.iconset/icon_128x128@2x.png
+
+sips -z 256 256   icon.png --out ImageConverter.iconset/icon_256x256.png
+sips -z 512 512   icon.png --out ImageConverter.iconset/icon_256x256@2x.png
+
+sips -z 512 512   icon.png --out ImageConverter.iconset/icon_512x512.png
+cp icon.png ImageConverter.iconset/icon_512x512@2x.png
+
+iconutil -c icns ImageConverter.iconset
+
+pyinstaller \
+    --clean \
+    --windowed \
+    --name "Image Converter" \
+    --icon ImageConverter.icns \
+    image_converter_gui.py
+
+brew install create-dmg
+create-dmg \
+    --volname "Image Converter" \
+    --window-pos 200 120 \
+    --window-size 800 500 \
+    --icon-size 100 \
+    --app-drop-link 600 300 \
+    "Image Converter.dmg" \
+    "dist/Image Converter.app"
+
+pip3 install tkinterdnd2
+
+python3 image_converter_gui.py
