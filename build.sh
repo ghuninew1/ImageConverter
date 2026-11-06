@@ -8,6 +8,7 @@ echo "================================"
 
 rm -rf build
 rm -rf dist
+rm -rf "Image Converter.dmg"
 
 pyinstaller \
     --clean \
@@ -30,6 +31,7 @@ create-dmg \
     --window-size 800 500 \
     --icon-size 100 \
     --app-drop-link 600 300 \
+    --hide-extension "Image Converter.app" \
     "Image Converter.dmg" \
     "dist/Image Converter.app"
 

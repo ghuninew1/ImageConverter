@@ -842,145 +842,118 @@ class ImageConverterApp:
 
             try:
 
-                if file.suffix.lower() == extension:
+                image = self.open_image(
+                    file
+                )
 
-                    self.skipped_files += 1
+                # ------------------------------
+                # Resize
+                # ------------------------------
 
-                    self.write_log(
-                        f"Skipping: {file.name}"
-                    )
+                if width:
 
-                else:
+                    if keep_aspect:
 
-                    image = self.open_image(
-                        file
-                    )
+                        image.thumbnail(
+                            (
+                                width,
+                                height
+                                if height
+                                else width,
+                            ),
+                            Image.Resampling.LANCZOS,
+                        )
 
-                    # ------------------------------
-                    # Resize
-                    # ------------------------------
+                    else:
 
-                    if width:
+                        target_height = (
+                            height
+                            if height
+                            else width
+                        )
 
-                        if keep_aspect:
+                        image = image.resize(
+                            (
+                                width,
+                                target_height,
+                            ),
+                            Image.Resampling.LANCZOS,
+                        )
 
-                            image.thumbnail(
-                                (
-                                    width,
-                                    height
-                                    if height
-                                    else width,
+                # ------------------------------
+                # Convert color mode
+                # ------------------------------
+
+                save_image = image
+
+                if extension in (
+                    ".jpg",
+                    ".jpeg",
+                    ".bmp",
+                ):
+
+                    if save_image.mode != "RGB":
+
+                        background = Image.new(
+                            "RGB",
+                            save_image.size,
+                            "white",
+                        )
+
+                        if (
+                            "A"
+                            in save_image.getbands()
+                        ):
+
+                            background.paste(
+                                save_image,
+                                mask=save_image.getchannel(
+                                    "A"
                                 ),
-                                Image.Resampling.LANCZOS,
                             )
 
                         else:
 
-                            target_height = (
-                                height
-                                if height
-                                else width
+                            background.paste(
+                                save_image
                             )
 
-                            image = image.resize(
-                                (
-                                    width,
-                                    target_height,
-                                ),
-                                Image.Resampling.LANCZOS,
-                            )
+                        save_image = background
 
-                    # ------------------------------
-                    # Convert color mode
-                    # ------------------------------
+                # ------------------------------
+                # Save
+                # ------------------------------
 
-                    save_image = image
+                save_kwargs = {}
 
-                    if extension in (
-                        ".jpg",
-                        ".jpeg",
-                        ".bmp",
-                    ):
+                if extension in (
+                    ".jpg",
+                    ".jpeg",
+                    ".webp",
+                    ".avif",
+                ):
 
-                        if save_image.mode != "RGB":
-
-                            background = Image.new(
-                                "RGB",
-                                save_image.size,
-                                "white",
-                            )
-
-                            if (
-                                "A"
-                                in save_image.getbands()
-                            ):
-
-                                background.paste(
-                                    save_image,
-                                    mask=save_image.getchannel(
-                                        "A"
-                                    ),
-                                )
-
-                            else:
-
-                                background.paste(
-                                    save_image
-                                )
-
-                            save_image = background
-
-                    # ------------------------------
-                    # Output filename
-                    # ------------------------------
-
-                    output = file.with_suffix(
-                        extension
+                    save_kwargs["quality"] = (
+                        quality
                     )
 
-                    counter = 1
+                if extension == ".webp":
 
-                    while output.exists():
+                    save_kwargs["method"] = 6
 
-                        output = file.with_name(
-                            f"{file.stem}-{counter}"
-                            f"{extension}"
-                        )
+                output = self.save_with_unique_name(
+                    save_image,
+                    file,
+                    extension,
+                    **save_kwargs,
+                )
 
-                        counter += 1
+                self.converted_files += 1
 
-                    # ------------------------------
-                    # Save
-                    # ------------------------------
-
-                    save_kwargs = {}
-
-                    if extension in (
-                        ".jpg",
-                        ".jpeg",
-                        ".webp",
-                        ".avif",
-                    ):
-
-                        save_kwargs["quality"] = (
-                            quality
-                        )
-
-                    if extension == ".webp":
-
-                        save_kwargs["method"] = 6
-
-                    save_image.save(
-                        output,
-                        **save_kwargs,
-                    )
-
-                    self.converted_files += 1
-
-                    self.write_log(
-                        f"✓ {file.name} → "
-                        f"{output.name}"
-                    )
+                self.write_log(
+                    f"✓ {file.name} → "
+                    f"{output.name}"
+                )
 
             except Exception as error:
 
@@ -998,6 +971,29 @@ class ImageConverterApp:
             0,
             self.conversion_finished,
         )
+
+    def save_with_unique_name(self, image, file, extension, **save_kwargs):
+        output = file.with_suffix(extension)
+        image_format = Image.registered_extensions()[extension]
+        counter = 1
+
+        while True:
+            try:
+                # Exclusive creation reserves the name across batches and processes.
+                output_stream = output.open("xb")
+            except FileExistsError:
+                output = file.with_name(f"{file.stem}_{counter:02d}{extension}")
+                counter += 1
+                continue
+
+            try:
+                with output_stream:
+                    image.save(output_stream, format=image_format, **save_kwargs)
+            except Exception:
+                output.unlink(missing_ok=True)
+                raise
+
+            return output
 
     # ========================================================
     # Progress UI
